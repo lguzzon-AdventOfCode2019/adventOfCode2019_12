@@ -2,6 +2,7 @@
 
 import strutils
 import sequtils
+import math
 
 type
     Moon = tuple
@@ -42,25 +43,29 @@ const
                             lMoon.position[i] = v.parseBiggestInt
                         lMoon)
 
-
-proc partOne =
-    var lMoons = gcMoons
-    for lStep in 1..gcSteps:
+template newMoons(aMoons: seq[Moon]): seq[Moon] =
+    block newMoons:
         var lNextMoons: seq[Moon]
-        for (lMoonIndex, lMoon) in lMoons.pairs:
+        for (lMoonIndex, lMoon) in aMoons.pairs:
             lNextMoons.add(lMoon)
-            for lIndex in ({0..lMoons.len.pred} - {lMoonIndex}):
-                for (i, v) in (lMoons[lIndex].position.pairs):
+            for lIndex in ({0..aMoons.len.pred} - {lMoonIndex}):
+                for (i, v) in (aMoons[lIndex].position.pairs):
                     if (lNextMoons[lMoonIndex].position[i] > v):
                         lNextMoons[lMoonIndex].velocity[i].dec
                     elif (lMoon.position[i] < v):
                         lNextMoons[lMoonIndex].velocity[i].inc
-        lMoons = lNextMoons.mapIt(
+        lNextMoons.mapIt(
             block addVelocity:
-                var lMoon: Moon = it
-                for (i, v) in lMoon.velocity.pairs:
-                    lMoon.position[i] = lMoon.position[i] + v
-                lMoon)
+                    var lMoon: Moon = it
+                    for (i, v) in lMoon.velocity.pairs:
+                        lMoon.position[i] = lMoon.position[i] + v
+                    lMoon)
+
+
+proc partOne =
+    var lMoons = gcMoons
+    for lStep in 1..gcSteps:
+        lMoons = newMoons(lMoons)
     let lTotalEnergy = lMoons.foldl(a +
                                     (b.position.foldl(abs(a)+abs(b)) *
                                      b.velocity.foldl(abs(a)+abs(b))),
@@ -69,7 +74,21 @@ proc partOne =
 
 
 proc partTwo =
-    echo "partTwo:", 2
+    var lMoons = gcMoons
+    var lAxis = [0i64, 0i64, 0i64]
+    var lStep = 0i64
+    while lAxis.anyIt(it == 0i64):
+        lMoons = newMoons(lMoons)
+        lStep.inc
+        if lStep mod 1000 == 0:
+            echo lStep
+        for (i, v) in lAxis.pairs:
+            if (v == 0) and
+                (lMoons.mapIt((it.position[i], it.velocity[i])) ==
+                    gcMoons.mapIt((it.position[i], it.velocity[i]))):
+                    lAxis[i] = lStep
+    echo "partOne:", lAxis.foldl((a*b) div gcd(a, b))
+
 
 partOne() #7722
-partTwo() #XXXX
+partTwo() #292653556339368
