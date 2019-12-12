@@ -3,6 +3,24 @@ import strutils
 import sequtils
 import math
 
+iterator combinations(n, r: Positive): seq[int] =
+  var
+    x = newSeq[int](r)
+    stack = @[0]
+
+  while stack.len > 0:
+    var
+      i = stack.high
+      v = stack.pop()
+    while v < n:
+      x[i] = v
+      inc v
+      inc i
+      stack.add(v)
+      if i == r:
+        yield x
+        break
+
 type
     Moon = tuple
         p: array[3, BiggestInt]
@@ -18,45 +36,62 @@ const
     gcInput = gcInputOk
     gcSteps = gcStepsOk
 
-    gcMoons = gcInput.split('\n').mapIt(
-        it.multiReplace(
-            ("<", ""),
-            (">", ""),
-            (" ", "")).split(',').mapIt(
-                it.split('=')[1])).mapIt(
-                    block buildMoon:
-                        var lMoon: Moon
-                        for (i, v) in it.pairs:
-                            lMoon.p[i] = v.parseBiggestInt
-                        lMoon)
+    gcMoons = block Moons:
+                  const lMoons = gcInput.split('\n').mapIt(
+                    it.multiReplace(
+                        ("<", ""),
+                        (">", ""),
+                        (" ", "")).split(',').mapIt(
+                            it.split('=')[1])).mapIt(
+                                block buildMoon:
+                                    var lMoon: Moon
+                                    for (i, v) in it.pairs:
+                                        lMoon.p[i] = v.parseBiggestInt
+                                    lMoon)
+                  var lResult: array[lMoons.len, Moon]
+                  for (i,v) in lMoons.pairs:
+                    lResult[i]=v
+                  lResult
 
-template newMoons(aMoons: seq[Moon]): seq[Moon] =
+
+    gcMoonsAxis = block MoonsAxis:
+                      var lResult: array[3, array[gcMoons.len, (BiggestInt, BiggestInt)]]
+                      for i in 0..2:
+                        for (j, v) in gcMoons.mapIt((it.p[i], it.v[i])).pairs:
+                          lResult[i][j] = v
+                      lResult
+
+    gcMoonCombinations = block MoonCombinations:
+                             const lCombinations = toSeq(combinations(gcMoons.len, 2))
+                             var lResult : array[lCombinations.len,array[2,int]]
+                             for (i,v) in lCombinations.pairs:
+                                 lResult[i][0]=v[0]
+                                 lResult[i][1]=v[1]
+                             lResult
+
+template newMoons(aMoons: var array[gcMoons.len,Moon]) =
     block newMoons:
-        var lNextMoons: seq[Moon]
-        for (lMoonIndex, lMoon) in aMoons.pairs:
-            lNextMoons.add(lMoon)
-            for lIndex in ({0..aMoons.len.pred} - {lMoonIndex}):
-                for (i, v) in (aMoons[lIndex].p.pairs):
-                    if (lNextMoons[lMoonIndex].p[i] > v):
-                        lNextMoons[lMoonIndex].v[i].dec
-                    elif (lMoon.p[i] < v):
-                        lNextMoons[lMoonIndex].v[i].inc
-        lNextMoons.mapIt(
-            block addv:
-                var lMoon: Moon = it
-                for (i, v) in lMoon.v.pairs:
-                    lMoon.p[i] = lMoon.p[i] + v
-                lMoon)
+        for v in gcMoonCombinations.items:
+          for a in 0..2:
+            if (aMoons[v[0]].p[a] > aMoons[v[1]].p[a]):
+              aMoons[v[0]].v[a].dec
+              aMoons[v[1]].v[a].inc
+            elif (aMoons[v[0]].p[a] < aMoons[v[1]].p[a]):
+              aMoons[v[0]].v[a].inc
+              aMoons[v[1]].v[a].dec
+        for i in 0..aMoons.len.pred:
+          for a in 0..2:
+            aMoons[i].p[a] += aMoons[i].v[a]
 
 
 proc partOne =
     var lMoons = gcMoons
     for lStep in 1..gcSteps:
-        lMoons = newMoons(lMoons)
+        newMoons(lMoons)
     let lTotalEnergy = lMoons.foldl(a +
                                     (b.p.foldl(abs(a)+abs(b)) *
                                      b.v.foldl(abs(a)+abs(b))),
-                                    0i64)
+                                     0i64)
     echo "partOne:", lTotalEnergy
 
 
@@ -65,13 +100,12 @@ proc partTwo =
     var lAxis = [0i64, 0i64, 0i64]
     var lStep = 0i64
     while lAxis.anyIt(it == 0i64):
-        lMoons = newMoons(lMoons)
+        newMoons(lMoons)
         lStep.inc
         for (i, v) in lAxis.pairs:
             if (v == 0) and
-                (lMoons.mapIt((it.p[i], it.v[i])) ==
-                 gcMoons.mapIt((it.p[i], it.v[i]))):
-                lAxis[i] = lStep
+                (lMoons.mapIt((it.p[i], it.v[i])) == gcMoonsAxis[i]):
+                  lAxis[i] = lStep
     # [268296i64, 113028, 231614]
     echo "partOne:", lAxis.foldl((a*b) div gcd(a, b))
 
